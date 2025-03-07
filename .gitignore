@@ -1,8 +1,8 @@
 # Игнорирование виртуальных окружений Python
-venv/
-.venv/
-env/
-ENV/
+myenv/
+.myenv/
+myenv/
+MYENV/
 
 # Игнорирование файлов с окружением
 #.env
