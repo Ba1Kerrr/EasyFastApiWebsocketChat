@@ -1,23 +1,20 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from typing import Dict
 
-
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: Dict[int, Dict[int, WebSocket]] = {}
+        self.active_connections: Dict[int, Dict[int, WebSocket]] = {} #словарь со всеми соединениями
+        #обычно импортируется из бд
 
     async def connect(self, websocket: WebSocket, room_id: int, user_id: int): 
-        await websocket.accept()
-        if room_id not in self.active_connections:
+        await websocket.accept() #подтверждение что чел может подключиться к данному вебсокету
+        if room_id not in self.active_connections: #проверка о существовании комнаты
             self.active_connections[room_id] = {}
         self.active_connections[room_id][user_id] = websocket
 
-    def disconnect(self, room_id: int, user_id: int):
+    def disconnect(self, room_id: int, user_id: int):# Принимает WebSocket-соединение, идентификатор комнаты (room_id) и пользователя (user_id).
         if room_id in self.active_connections and user_id in self.active_connections[room_id]:
             del self.active_connections[room_id][user_id]
-            if not self.active_connections[room_id]:
-                # Удаляем комнату, если она пустая
-                del self.active_connections[room_id]
 
     async def broadcast(self, message: str, room_id: int, sender_id: int):
         if room_id in self.active_connections:
@@ -28,22 +25,62 @@ class ConnectionManager:
                 }
                 await connection.send_json(message_with_class)
 
+manager = ConnectionManager()
+router = APIRouter(prefix="/ws/chat")
+@router.websocket("/ws/{username}/{correspondent}")
+async def websocket_endpoint(websocket: WebSocket, username: str, correspondent: str):
+    await manager.connect(websocket, username, correspondent)
+    await manager.broadcast(f"{username} присоединился к чату.", username, correspondent)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await manager.broadcast(f"{username}: {data}", username, correspondent)
+    except WebSocketDisconnect:
+        manager.disconnect(username, correspondent)
+        await manager.broadcast(f"{username} покинул чат.", username, correspondent)
+#Конструктор класса
+
+# self.active_connections — словарь, который хранит активные соединения, сгруппированные по комнатам (room_id).
+
+# В каждой комнате (room_id) подключенные пользователи хранятся в виде {user_id: WebSocket}.
+
+# connect
+
+
+# Подтверждает соединение (websocket.accept()).
+
+# Добавляет WebSocket в self.active_connections.
+
+# disconnect
+
+# Удаляет WebSocket пользователя из self.active_connections.
+
+# Если в комнате не осталось пользователей, удаляет комнату.
+
+# broadcast
+
+# Отправляет сообщение всем пользователям в комнате.
+
+# Дополнительно добавляет флаг is_self, чтобы клиент мог визуально выделять свои сообщения.
 
 manager = ConnectionManager()
 router = APIRouter(prefix="/ws/chat")
 
 
-@router.websocket("/{room_id}/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, room_id: int, user_id: int, username: str):
-    await manager.connect(websocket, room_id, user_id)
-    await manager.broadcast(f"{username} присоединился к чату.", room_id, user_id)
-    try:
-        while True:
-            data = await websocket.receive_text()
-            await manager.broadcast(f"{username}: {data}", room_id, user_id)
-    except WebSocketDisconnect:
-        manager.disconnect(room_id, user_id)
-        await manager.broadcast(f"{username} покинул чат.", room_id, user_id)
+username = "ada"#это мы сразу будем получать когда зареганы,уже реаилизованно в основном коде
+
+@router.websocket("/ws/{username}/{correspondent}")
+async def websocket_endpoint(websocket: WebSocket, username: str, correspondent: str):
+    if username == "ada":
+        await manager.connect(websocket, username, correspondent)
+        await manager.broadcast(f"{username} присоединился к чату.", username, correspondent)
+        try:
+            while True:
+                data = await websocket.receive_text()
+                await manager.broadcast(f"{username}: {data}", username, correspondent)
+        except WebSocketDisconnect:
+            manager.disconnect(username, correspondent)
+            await manager.broadcast(f"{username} покинул чат.", username, correspondent)
 #в этом файле надо сделать так чтоб ты подключался по 2 usernam'ам то есть нужно убрать все room_id
 
 #--------------------------------------------------------------------------------------------------------------------------
