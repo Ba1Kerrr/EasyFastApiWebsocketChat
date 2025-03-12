@@ -1,4 +1,5 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
@@ -8,11 +9,25 @@ app = FastAPI()
 templates = Jinja2Templates(directory="app/templates")
 
 users = {}
+app.mount("/templates/static", StaticFiles(directory="app/templates/static"), name="static")
 
+@app.get("/users/{virtfriend}")
+async def get(request: Request,virtfriend:str):
+    return templates.TemplateResponse("index.html",{"request": request,"virtfriend":virtfriend})
 @app.get("/")
 async def get(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
+    data = [ {"username": "Kaidox"},
+             {"username": "Valtor"},
+             {"username": "Nexarion"},
+             {"username": "Lyriq"},
+             {"username": "Khaosx"},
+             {"username": "Zephyrine"},
+             {"username": "Tharros"},
+             {"username": "Vespera"},
+             {"username": "Kyrope"},
+             {"username": "Xylara"} ]
+    return templates.TemplateResponse("home.html", {"request": request,"data":data})
+# тут надо реализовать херь которая по руту передает юзеров в таблицу и при нажатии на них идет переадресация на чат
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
